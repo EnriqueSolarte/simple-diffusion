@@ -5,6 +5,23 @@ from PIL import Image
 
 import webdataset as wds
 import datasets
+from pathlib import Path
+
+
+class ImageDataset(Dataset):
+    def __init__(self, image_dir: Path, transforms):
+        image_paths = [fn for fn in image_dir.iterdir()]
+        self.image_paths = image_paths
+        self.transforms = transforms
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        image = Image.open(image_path).convert("RGB")
+        image = self.transforms(image)
+        return {"image": image}
 
 
 class CustomDataset(Dataset):

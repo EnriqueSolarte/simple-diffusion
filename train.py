@@ -14,12 +14,12 @@ from torchinfo import summary
 from simple_diffusion.scheduler import DDIMScheduler
 from simple_diffusion.model import UNet
 from simple_diffusion.utils import save_images
-from simple_diffusion.dataset import CustomDataset, get_dataset
+from simple_diffusion.dataset import ImageDataset, CustomDataset, get_dataset
 import pandas as pd
 import webdataset as wds
-
+from pathlib import Path
 from simple_diffusion.ema import EMA
-
+from geometry_perception_utils.io_utils import create_directory
 SEED = 42
 
 random.seed(SEED)
@@ -29,6 +29,7 @@ torch.cuda.manual_seed(SEED)
 
 n_timesteps = 1000
 n_inference_timesteps = 250
+
 
 def _grayscale_to_rgb(img):
     if img.mode != "RGB":
@@ -89,8 +90,7 @@ def main(args):
             ]
             return {"image": images}
 
-        df = pd.read_pickle(args.dataset_path)
-        dataset = CustomDataset(df, tfms)
+        dataset = ImageDataset(Path(args.dataset_path), tfms)
 
     if args.dataset_name == "yfcc7m":
         train_dataloader = wds.WebLoader(dataset,
@@ -120,6 +120,7 @@ def main(args):
     scaler = GradScaler(enabled=args.fp16_precision)
     global_step = 0
     losses = []
+    create_directory(args.output_dir)
     for epoch in range(args.num_epochs):
         progress_bar = tqdm(total=steps_per_epcoch)
         progress_bar.set_description(f"Epoch {epoch}")
@@ -198,19 +199,19 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_name", type=str, default=None)
     parser.add_argument('--dataset_path',
                         type=str,
-                        default='./data',
+                        default='/media/datasets/lfw__pre_processed/data_24_12_29/',
                         help='Path where datasets will be saved')
     parser.add_argument("--dataset_config_name", type=str, default=None)
     parser.add_argument("--output_dir",
                         type=str,
-                        default="trained_models/ddpm-model-64.pth")
+                        default=f"{Path(__file__).parent}/trained_models/ddpm-model-64.pth")
     parser.add_argument("--samples_dir", type=str, default="test_samples/")
     parser.add_argument("--loss_logs_dir", type=str, default="training_logs")
     parser.add_argument("--cache_dir", type=str, default=None)
     parser.add_argument("--resolution", type=int, default=64)
     parser.add_argument("--train_batch_size", type=int, default=16)
     parser.add_argument("--eval_batch_size", type=int, default=16)
-    parser.add_argument("--num_epochs", type=int, default=1)
+    parser.add_argument("--num_epochs", type=int, default=10000)
     parser.add_argument("--save_model_steps", type=int, default=1000)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
@@ -230,9 +231,9 @@ if __name__ == "__main__":
                         action='store_true',
                         help='Whether to use 16-bit precision for GPU training')
     parser.add_argument('--gamma',
-                    default=0.996,
-                    type=float,
-                    help='Initial EMA coefficient')
+                        default=0.996,
+                        type=float,
+                        help='Initial EMA coefficient')
 
     args = parser.parse_args()
 
